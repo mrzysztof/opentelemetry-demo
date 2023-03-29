@@ -19,6 +19,19 @@ Authors: Szymon Musiał, Paweł Kruczkiewicz, Marcin Kroczek, Krzysztof Maliszew
 ## Introduction
 ## Theoretical background
 ## Case study concept description
+
+The proposed demonstration of using OpenTelemetry will consist of using a set of these tools in the EmotoAGH project's web application. The mentioned application is responsible for:
+
+- Collecting measurements from motorcycles created in the project,
+- Aggregating, sorting, filtering measurements,
+- Securing access based on the RBAC concept,
+- A sufficiently universal API used by the website and another team of mobile applications.
+
+
+It is publicly available, and its availability options are based on the user roles declared.
+The application is available on bare-metal Kubernetes on Oracle OCI machines. We plan to use the mentioned project to observe its behaviors, events, logs, metrics and potential errors by deploying appropriate OpenTelemetry tools.
+
+
 ## Solution architecture
 ## Environment configuration
 ## Installation method
