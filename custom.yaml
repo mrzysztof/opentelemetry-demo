@@ -1,0 +1,22 @@
+storage:
+  trace:
+    backend: local                     # backend configuration to use
+    wal:
+      path: /tmp/tempo/wal             # where to store the the wal locally
+    local:
+      path: /tmp/tempo/blocks
+
+tempo:
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: http://kube-prometheus-stack-prometheus.observability.svc:9090/api/v1/write
+
+tempoQuery:
+  enabled: false
+
+# https://github.com/grafana/helm-charts/blob/main/charts/tempo/README.md
+
+minio:
+  enabled: false # Disables the MinIO chart
+
+# helm upgrade --install tempo grafana/tempo --namespace open-telemetry --create-namespace -f custom.yaml
