@@ -47,6 +47,43 @@ The application is available on bare-metal Kubernetes on Oracle OCI machines. We
 
 
 ## Solution architecture
+
+
+```mermaid
+flowchart LR
+
+App>Web Application]
+Nginx["Nginx
+ingress controller"]
+
+K8["Kubernetes
+cluster"]
+Prom[("Prometheus
+operator")]
+Tempo[("Grafana Tempo")]
+Grafana["Grafana
+dashboards"]
+
+subgraph Oltp[Opentelemetry]
+    direction TB
+    o(Operator) --- c(Collector)
+end
+
+K8 --- Oltp
+K8 --- Prom
+
+App -->|Oltp| Oltp
+
+Oltp -->|"Prometheus
+remote write"| Prom
+Oltp --> Tempo
+
+Prom --> Grafana
+Tempo --> Grafana
+
+Nginx --->|temporary| Tempo
+```
+
 ## Environment configuration
 ## Installation method
 ## How to reproduce
