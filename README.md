@@ -90,3 +90,17 @@ Nginx --->|temporary| Tempo
 ## Demo deployment
 ## Summary
 ## References
+
+- [OpenTelemetry](https://opentelemetry.io)
+- [OpenTelemetry in ASP.Net web application](https://opentelemetry.io/docs/instrumentation/net/libraries/)
+- [Prometheus Operator](https://github.com/prometheus-operator/prometheus-operator)
+- [OpenTelemetry Operator for Kubernetes](https://opentelemetry.io/docs/k8s-operator)
+- [Cert manager](https://cert-manager.io/docs/installation)
+- [Grafana Tempo](https://grafana.com/oss/tempo)
+
+### Helm charts repo:
+
+- [Prometheus Helm](https://github.com/prometheus-community/helm-charts)
+- [OpenTelemetry Operator](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-operator)
+- [Grafana Tempo](https://github.com/grafana/helm-charts/tree/main/charts/tempo)
+
