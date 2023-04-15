@@ -5,21 +5,17 @@ Authors: Szymon Musiał, Paweł Kruczkiewicz, Marcin Kroczek, Krzysztof Maliszew
 2023, Implementation of Network Services
 
 ## Table of Contents
-- [OpenTele-17 - OpenTelemetry Case Study](#opentele-17---opentelemetry-case-study)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-  - [Theoretical background](#theoretical-background)
-    - [Instrumenting](#instrumenting)
-    - [Data Collection](#data-collection)
-  - [Case study concept description](#case-study-concept-description)
-  - [Solution architecture](#solution-architecture)
-  - [Environment configuration](#environment-configuration)
-  - [Installation method](#installation-method)
-  - [How to reproduce](#how-to-reproduce)
-  - [Demo deployment](#demo-deployment)
-  - [Summary](#summary)
-  - [References](#references)
-    - [Helm charts repo:](#helm-charts-repo)
+1. [Introduction](#introduction)
+2. [Theoretical background](#theoretical-background)
+3. [Case study concept description](#case-study-concept-description)
+4. [Solution architecture](#solution-architecture)
+5. [Environment configuration](#environment-configuration)
+6. [Installation method](#installation-method)
+7. [How to reproduce](#how-to-reproduce)
+8. [Demo deployment](#demo-deployment)
+9. [Summary](#summary)
+10. [References](#references)
+    - [Helm charts repo](#helm-charts-repo)
 
 ## Introduction
 This project serves as a case study of observability using OpenTelemetry on an existing EmotoAGH application.
