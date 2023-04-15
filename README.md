@@ -77,12 +77,12 @@ App -->|Oltp| Oltp
 
 Oltp -->|"Prometheus
 remote write"| Prom
-Oltp --> Tempo
+Oltp -->|Oltp| Tempo
 
 Prom --> Grafana
 Tempo --> Grafana
 
-Nginx --->|temporary| Tempo
+Nginx -->|Jaeger| Oltp
 ```
 
 ## Environment configuration
@@ -133,12 +133,27 @@ builder.Services.AddAppOpenTelemetry(appConfiguration);
 Web application use global error handling so every exception will be passed via this part of code, what is responsible for append exception information into trace
 
 ```c#
-var activity = Activity.Current;
-while (activity != null)
+internal static void RecordExceptionToTrace(Exception? exception)
 {
-    activity.RecordException(exception);
-    activity.Dispose();
-    activity = activity.Parent;
+    var activity = Activity.Current;
+
+    if (activity is null && exception is null)
+    {
+        return;
+    }
+
+    // Add App domain error codes
+    if (exception is AppException appException)
+    {
+        activity?.AddTag(nameof(AppException.AppErrorCodes), string.Join(", ", appException.AppErrorCodes));
+    }
+
+    while (activity != null)
+    {
+        activity.RecordException(exception);
+        activity.Dispose();
+        activity = activity.Parent;
+    }
 }
 ```
 
@@ -171,23 +186,35 @@ open-telemetry  https://open-telemetry.github.io/opentelemetry-helm-charts
 grafana         https://grafana.github.io/helm-charts
 ```
 
-Prometheus deployment
+## Prometheus deployment
+
 ```sh
 helm upgrade \
-      --install kube-prometheus-stack \
-      prometheus/kube-prometheus-stack \
-      --namespace observability \
-      --create-namespace \
-      --set grafana.ingress.enabled=true \
-      --set grafana.ingress.hosts={grafana.emotoagh.eu.org} \
-      --set grafana.ingress.tls[0].secretName=emoto-agh-wildcard-certificate \
-      --set grafana.ingress.tls[0].hosts={grafana.emotoagh.eu.org} \
-      --set grafana.additionalDataSources[0].name=Jaeger \
-      --set grafana.additionalDataSources[0].type=jaeger \
-      --set grafana.additionalDataSources[0].url=http://jaegertracing.default \
-      --set grafana.additionalDataSources[0].editable=true \
-      --set prometheus.prometheusSpec.enableRemoteWriteReceiver=true \
-      --set grafana.ingress.annotations."nginx\.ingress\.kubernetes\.io/whitelist-source-range"=10.0.0.0/8 
+    --debug \
+    --install kube-prometheus-stack \
+    prometheus/kube-prometheus-stack \
+    -f kube_prometheus_stack.yaml \
+    --namespace observability \
+    --create-namespace
+```
+Used chart values: [`kube_prometheus_stack.yaml`](./kube_prometheus_stack.yaml)
+
+```yaml
+prometheus:
+  prometheusSpec:
+    enableRemoteWriteReceiver: true
+
+grafana:
+  ingress:
+    enabled: true
+    # ....
+
+  additionalDataSources:
+  - name: Tempo
+    editable: true
+    type: tempo
+    url: http://tempo.observability.svc:3100
+    # ....
 ```
 
 The Prometheus operator leverages the ability to read the cluster's configuration to obtain information about the installed components and gather metrics from them.
@@ -196,20 +223,39 @@ Command shown above is modified. This adds ingress definition with ssl certifica
 
 Also we enabled `enableRemoteWriteReceiver` to allow sending metrics from OpenTelemetry exporter to prometheus. It's push based approach.
 
+### Grafana Tempo 
 
 To save traces we deploy Grafana Tempo using monolithic mode. OpenTelemetry Collector is High availability (Deamon set), so we don't need microservice mode.
 
-[In config file](./custom.yaml) we use remote write to send metrics to prometheus to see ex. error spans in grafana dashboard and navigate to span wht generated this error
+[In config file](./kube_prometheus_stack.yaml) we use remote write to send metrics to prometheus to see ex. error spans in grafana dashboard and navigate to span wht generated this error
 
-``` yaml
-      helm upgrade \
-      --install tempo  \
-      grafana/tempo \
-      --namespace open-telemetry \
-      --create-namespace \
-      -f custom.yaml
-
+```sh
+helm upgrade \
+    --install tempo \
+    grafana/tempo \
+    -f grafana_tempo.yaml \
+    --namespace observability \
+    --create-namespace
 ```
+
+Used chart values: [`grafana_tempo.yaml`](./grafana_tempo.yaml)
+
+```yaml
+storage:
+  trace:
+    backend: local # can be AWS s3
+    # ...
+
+tempo:
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: http://kube-prometheus-stack-prometheus.observability.svc:9090/api/v1/write
+
+tempoQuery:
+  enabled: false
+```
+
+### OpenTelemetry
 
 Next we should have installed Cert manager, what is OpenTelemetry operator dependency
 
@@ -220,37 +266,81 @@ kubectl apply -f ./cert-manager.yaml
 
 Now we add OpenTelemetry Operator initial configuration ??
 ```sh
-      helm upgrade \
-      --install opentelemetry-operator \
-      open-telemetry/opentelemetry-operator \
-      --namespace open-telemetry \
-      --create-namespace 
+helm upgrade \
+    --install opentelemetry-operator \
+    open-telemetry/opentelemetry-operator \
+    --namespace observability \
+    --create-namespace
 ```
 
 We are ready do deploy OpenTelemetry Collector. We can achieve this using few different kinds os deployments. To keep short route between pods and OpenTelemety receivers we use `DeamonSet`. So we have one pod with collector on every node and it's carry about process and export telemetry
 
-To do that we apply [this yaml](./otel-collector.yaml)
+To do that we apply [DeamonSet definition](./OpenTelemetryCollector.yaml) shwown below
+
+```yaml
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: my-collector
+  namespace: observability
+spec:
+  mode: daemonset
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+      jaeger:
+        protocols:
+          grpc:
+          thrift_compact:
+    processors:
+
+    exporters:
+      logging:
+        loglevel: debug
+      otlp:
+        endpoint: tempo.observability.svc:4317
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: http://kube-prometheus-stack-prometheus.observability.svc:9090/api/v1/write
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger]
+          processors: []
+          exporters: [otlp, logging]
+        metrics:
+          receivers: [otlp]
+          processors: []
+          exporters: [logging, prometheusremotewrite]
+```
 
 Also we specify 2 receivers protocols: otlp, jaeger.
 
 We save traces into Grafana Tempo using otlp protocol, and metric into Prometheus using `remote write receiver`
 
 
-Finally we can use `http://my-collector-collector.open-telemetry:4317` endpoint to pass into web app configuration and observe.
-In our case i pass this variable using gitlab ci/cd variable section
+Finally we can use `http://my-collector-collector.observability.svc:4317` endpoint to pass into web app configuration and observe.
+In our case i pass this variable using gitlab ci/cd variable section.
+For demo purposes, we didn't use [.Net automatic Instrumentation](https://opentelemetry.io/docs/instrumentation/net/automatic/)
 
 
-Additionally for presentation we configure Nginx ingress controller to send tracing. This can be done by adding this to ingress config maps
+Additionally for presentation we configure Nginx ingress controller to send tracing. This can be done by modify [ingress config maps](./Configmap-ingress-nginx.yaml)
 
 ```yaml
+apiVersion: v1
 data:
   enable-opentracing: "true"
-  jaeger-collector-host: tempo.open-telemetry.svc
+  jaeger-collector-host: my-collector-collector.observability.svc
+  jaeger-collector-port: "6831"
   jaeger-propagation-format: w3c
   jaeger-service-name: nignx-ingresss-controller
   jaeger-trace-context-header-name: request-id
   opentracing-trust-incoming-span: "true"
-  # ....
 kind: ConfigMap
 # ....
 ```
