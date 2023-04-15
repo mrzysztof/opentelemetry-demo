@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  enable-opentracing: "true"
+  jaeger-collector-host: my-collector-collector.observability.svc
+  jaeger-collector-port: "6831"
+  jaeger-propagation-format: w3c
+  jaeger-service-name: nignx-ingresss-controller
+  jaeger-trace-context-header-name: request-id
+  opentracing-trust-incoming-span: "true"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+  name: ingress-nginx
+  namespace: ingress
+
+# Required grpc, and thrift_compact protocol
+# jaeger-propagation-format: w3c is used by OpenTelemtry apps, ex. written in asp.net

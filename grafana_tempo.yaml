@@ -14,9 +14,7 @@ tempo:
 tempoQuery:
   enabled: false
 
-# https://github.com/grafana/helm-charts/blob/main/charts/tempo/README.md
-
 minio:
   enabled: false # Disables the MinIO chart
 
-# helm upgrade --install tempo grafana/tempo --namespace open-telemetry --create-namespace -f custom.yaml
+# https://github.com/grafana/helm-charts/blob/main/charts/tempo/README.md
