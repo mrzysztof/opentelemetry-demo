@@ -49,7 +49,6 @@ The application is available on bare-metal Kubernetes on Oracle OCI machines. We
 
 ## Solution architecture
 
-
 ```mermaid
 flowchart LR
 
@@ -60,10 +59,13 @@ ingress controller"]
 K8["Kubernetes
 cluster"]
 Prom[("Prometheus
-operator")]
-Tempo[("Grafana Tempo")]
+operator
+(metrics)")]
+Tempo[("Grafana Tempo
+(traces)")]
 Grafana["Grafana
-dashboards"]
+dashboards
+(Web UI)"]
 
 subgraph Oltp[Opentelemetry]
     direction TB
@@ -78,6 +80,9 @@ App -->|Oltp| Oltp
 Oltp -->|"Prometheus
 remote write"| Prom
 Oltp -->|Oltp| Tempo
+
+Oltp -->|Temporary| cli["Console output
+(logs)"]
 
 Prom --> Grafana
 Tempo --> Grafana
@@ -95,39 +100,73 @@ The configuration of the observed application involves providing the appropriate
 In our case web application contains code shown below
 
 ```c#
-public static class AppOpenTelemetry
+using Domain.Models;
+
+public static IServiceCollection AddAppOpenTelemetryMetrics(this IServiceCollection services, AppConfiguration appConfiguration)
 {
-    public static IServiceCollection AddAppOpenTelemetry(this IServiceCollection services, AppConfiguration appConfiguration)
+    if (appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint is null)
     {
-        if(appConfiguration.OtlpExporterEndpoint is null)
-        {
-            return services;
-        }
-
-        services.AddOpenTelemetry()
-            .WithTracing(tracerProviderBuilder => tracerProviderBuilder
-                .ConfigureResource(r => r.AddService(appConfiguration.OtlpServiceName))
-                .AddAspNetCoreInstrumentation()
-                .AddEntityFrameworkCoreInstrumentation(o =>
-                {
-                    o.SetDbStatementForText = true;
-                    o.SetDbStatementForStoredProcedure = true;
-                })
-                .AddOtlpExporter(e => e.Endpoint = new Uri(appConfiguration.OtlpExporterEndpoint)))
-            .WithMetrics(metricsProviderBuilder => metricsProviderBuilder
-                .ConfigureResource(r => r.AddService(appConfiguration.OtlpServiceName))
-                .AddAspNetCoreInstrumentation()
-                .AddRuntimeInstrumentation()
-                .AddOtlpExporter(e => e.Endpoint = new Uri(appConfiguration.OtlpExporterEndpoint)));
-
         return services;
     }
+
+    services.AddOpenTelemetry()
+        .WithMetrics(metricsProviderBuilder => metricsProviderBuilder
+            .SetResourceBuilder(CreateAppOtelResource(appConfiguration))
+            .AddAspNetCoreInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddOtlpExporter(e => e.Endpoint = new Uri(appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint)));
+
+    return services;
+}
+
+public static IServiceCollection AddAppOpenTelemetryTracing(this IServiceCollection services, AppConfiguration appConfiguration)
+{
+    if (appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint is null)
+    {
+        return services;
+    }
+
+    services.AddOpenTelemetry()
+        .WithTracing(tracerProviderBuilder => tracerProviderBuilder
+            .SetResourceBuilder(CreateAppOtelResource(appConfiguration))
+            .AddAspNetCoreInstrumentation()
+            .AddEntityFrameworkCoreInstrumentation(o =>
+            {
+                o.SetDbStatementForText = true;
+                o.SetDbStatementForStoredProcedure = true;
+            }));
+
+    return services;
+}
+
+public static ILoggingBuilder AddAppOpenTelemetryLogs(this ILoggingBuilder loggingBuilder, AppConfiguration appConfiguration)
+{
+    if (appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint is null)
+    {
+        return loggingBuilder;
+    }
+
+    return loggingBuilder.AddOpenTelemetry(options => options
+        .SetResourceBuilder(CreateAppOtelResource(appConfiguration))
+        .AddOtlpExporter(o => o.Endpoint = new Uri(appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint))
+    );
+}
+
+static internal ResourceBuilder CreateAppOtelResource(AppConfiguration appConfiguration)
+{
+    var resourceBuilder = ResourceBuilder.CreateDefault();
+    resourceBuilder.AddService(
+       serviceName: appConfiguration.PanelEmotoAgh_OtlpServiceName,
+       serviceInstanceId: Environment.MachineName); // Pod name in k8 cluster
+    return resourceBuilder;
 }
 ```
 This extension is used at application starting point
 
 ```c#
-builder.Services.AddAppOpenTelemetry(appConfiguration);
+builder.Services.AddAppOpenTelemetryMetrics(appConfiguration);
+builder.Services.AddAppOpenTelemetryTracing(appConfiguration);
+builder.Logging.AddAppOpenTelemetryLogs(appConfiguration);
 ```
 
 Web application use global error handling so every exception will be passed via this part of code, what is responsible for append exception information into trace
@@ -312,11 +351,15 @@ spec:
         traces:
           receivers: [otlp, jaeger]
           processors: []
-          exporters: [otlp, logging]
+          exporters: [otlp]
         metrics:
           receivers: [otlp]
           processors: []
-          exporters: [logging, prometheusremotewrite]
+          exporters: [prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          processors: []
+          exporters: [logging]
 ```
 
 Also we specify 2 receivers protocols: otlp, jaeger.
