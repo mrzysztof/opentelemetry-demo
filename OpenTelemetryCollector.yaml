@@ -37,3 +37,7 @@ spec:
           receivers: [otlp]
           processors: []
           exporters: [logging, prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          processors: []
+          exporters: [logging]
