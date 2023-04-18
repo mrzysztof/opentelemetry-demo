@@ -100,41 +100,29 @@ The configuration of the observed application involves providing the appropriate
 In our case web application contains code shown below
 
 ```c#
-using Domain.Models;
-
-public static IServiceCollection AddAppOpenTelemetryMetrics(this IServiceCollection services, AppConfiguration appConfiguration)
+public static IServiceCollection AddAppOpenTelemetryMetricsAndTracing(this IServiceCollection services, AppConfiguration appConfiguration)
 {
     if (appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint is null)
     {
         return services;
     }
+    var resourceBuilder = CreateAppOtelResource(appConfiguration);
 
     services.AddOpenTelemetry()
         .WithMetrics(metricsProviderBuilder => metricsProviderBuilder
-            .SetResourceBuilder(CreateAppOtelResource(appConfiguration))
+            .SetResourceBuilder(resourceBuilder)
             .AddAspNetCoreInstrumentation()
             .AddRuntimeInstrumentation()
-            .AddOtlpExporter(e => e.Endpoint = new Uri(appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint)));
-
-    return services;
-}
-
-public static IServiceCollection AddAppOpenTelemetryTracing(this IServiceCollection services, AppConfiguration appConfiguration)
-{
-    if (appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint is null)
-    {
-        return services;
-    }
-
-    services.AddOpenTelemetry()
+            .AddOtlpExporter(e => e.Endpoint = new Uri(appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint)))
         .WithTracing(tracerProviderBuilder => tracerProviderBuilder
-            .SetResourceBuilder(CreateAppOtelResource(appConfiguration))
+            .SetResourceBuilder(resourceBuilder)
             .AddAspNetCoreInstrumentation()
             .AddEntityFrameworkCoreInstrumentation(o =>
             {
                 o.SetDbStatementForText = true;
                 o.SetDbStatementForStoredProcedure = true;
-            }));
+            })
+            .AddOtlpExporter(e => e.Endpoint = new Uri(appConfiguration.PanelEmotoAgh_OtlpExporterEndpoint)));
 
     return services;
 }
@@ -164,8 +152,7 @@ static internal ResourceBuilder CreateAppOtelResource(AppConfiguration appConfig
 This extension is used at application starting point
 
 ```c#
-builder.Services.AddAppOpenTelemetryMetrics(appConfiguration);
-builder.Services.AddAppOpenTelemetryTracing(appConfiguration);
+builder.Services.AddAppOpenTelemetryMetricsAndTracing(appConfiguration);
 builder.Logging.AddAppOpenTelemetryLogs(appConfiguration);
 ```
 
