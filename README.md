@@ -77,9 +77,9 @@ subgraph Oltp[Opentelemetry]
     o(Operator) --- c(Collector)
 end
 
-K8 --- Oltp
-K8 ----- Prom
-K8 ------|Promtail| Loki
+K8 <--->|K8 operator| Oltp
+K8 <--->|K8 operator| Prom
+K8 ----->|Promtail| Loki
 
 Oltp --->|"Prometheus
 remote write"| Prom
