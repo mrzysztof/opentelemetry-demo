@@ -21,6 +21,15 @@ grafana:
     url: http://tempo.observability.svc:3100
     jsonData:
       httpMethod: GET
+      tracesToLogs:
+        datasourceUid: 'loki'
+        tags: ['job', 'instance', 'pod', 'namespace']
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        mapTagNamesEnabled: false
+        spanStartTimeShift: '1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: false
+        filterBySpanID: false
       tracesToMetrics:
         datasourceUid: 'prom'
         tags: [{ key: 'service.name', value: 'service' }, { key: 'job' }]
@@ -33,5 +42,22 @@ grafana:
         hide: false
       nodeGraph:
         enabled: true
+      lokiSearch:
+        datasourceUid: 'loki'
+    apiVersion: 1
+
+  - name: Loki
+    type: loki
+    url: http://loki.observability:3100
+    basicAuth: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Field with external link.
+        - matcherRegex: "traceID=(\\w+)"
+          name: TraceID
+          url: 'http://localhost:16686/trace/$${__value.raw}'
+    secureJsonData:
+      basicAuthPassword: test_password
 
 # values from: https://github.com/prometheus-community/helm-charts/blob/kube-prometheus-stack-45.8.1/charts/kube-prometheus-stack/values.yaml#L750
