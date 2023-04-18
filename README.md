@@ -56,13 +56,18 @@ App>Web Application]
 Nginx["Nginx
 ingress controller"]
 
-K8["Kubernetes
-cluster"]
+K8["Kubernetes cluster"]
+
 Prom[("Prometheus
 operator
 (metrics)")]
+
 Tempo[("Grafana Tempo
 (traces)")]
+
+Loki[("Grafana Loki
+(logs)")]
+
 Grafana["Grafana
 dashboards
 (Web UI)"]
@@ -73,20 +78,19 @@ subgraph Oltp[Opentelemetry]
 end
 
 K8 --- Oltp
-K8 --- Prom
+K8 ----- Prom
+K8 ------|Promtail| Loki
+
+Oltp --->|"Prometheus
+remote write"| Prom
+Oltp --->|Oltp| Tempo
+Oltp -->|Api| Loki
+
+Prom ---> Grafana
+Tempo ---> Grafana
+Loki ---> Grafana
 
 App -->|Oltp| Oltp
-
-Oltp -->|"Prometheus
-remote write"| Prom
-Oltp -->|Oltp| Tempo
-
-Oltp -->|Temporary| cli["Console output
-(logs)"]
-
-Prom --> Grafana
-Tempo --> Grafana
-
 Nginx -->|Jaeger| Oltp
 ```
 
@@ -280,6 +284,32 @@ tempo:
 tempoQuery:
   enabled: false
 ```
+
+### Grafana Tempo 
+
+To save logs we deploy Grafana Loki using monolithic mode. Loki deploy also provide Promtail, this is an agent which ships the contents of local logs to a Grafana Loki instance
+
+```sh
+helm upgrade \
+   --install loki \
+  grafana/loki-stack \
+  -f ./grafana_loki.yaml \
+  --namespace observability \
+  --create-namespace
+```
+
+Used chart values: [`grafana_loki.yaml`](./grafana_loki.yaml)
+
+```yaml
+loki:
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: 'filesystem'
+singleBinary:
+  replicas: 1
+```
+
 
 ### OpenTelemetry
 
