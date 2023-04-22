@@ -72,27 +72,28 @@ Grafana["Grafana
 dashboards
 (Web UI)"]
 
-subgraph Oltp[Opentelemetry]
+subgraph Otlp[Opentelemetry]
     direction TB
     o(Operator) --- c(Collector)
 end
 
-K8 <--->|K8 operator| Oltp
+K8 <--->|K8 operator| Otlp
 K8 <--->|K8 operator| Prom
 K8 ----->|Promtail| Loki
 
-Oltp --->|"Prometheus
+Otlp --->|"Prometheus
 remote write"| Prom
-Oltp --->|Oltp| Tempo
-Oltp -->|Api| Loki
+Otlp --->|Otlp| Tempo
+Otlp -->|Api| Loki
 
 Prom ---> Grafana
 Tempo ---> Grafana
 Loki ---> Grafana
 
-App -->|Oltp| Oltp
-Nginx -->|Jaeger| Oltp
+App -->|Otlp| Otlp
+Nginx -->|Jaeger| Otlp
 ```
+One can notice the use Kubernetes operators. They are a way to automate the management of complex applications on Kubernetes clusters. An Operator is essentially a piece of software that uses Kubernetes APIs and custom resources to manage applications and infrastructure in a more intelligent way than traditional automation tools. Operators can be thought of as an extension of Kubernetes controllers, which are responsible for monitoring the state of Kubernetes objects and taking actions to bring them into the desired state. However, Operators are designed to handle more complex tasks than controllers, such as deploying and scaling stateful applications, managing databases, and handling backup and restore operations. Operators use custom resources to represent and manage the application or infrastructure they are responsible for. Custom resources are extensions of the Kubernetes API that can be used to define new types of objects that are specific to an application or infrastructure. These custom resources can be used to define the desired state of the application or infrastructure and provide a way for the Operator to monitor and manage it.
 
 ## Environment configuration
 
@@ -191,9 +192,11 @@ internal static void RecordExceptionToTrace(Exception? exception)
 
 In the example, we were observing a running application. To carry out the demo, adding the appropriate deployments is required. Therefore, on the computer that will be configuring the cluster, installing and configuring kubectl, as well as the helm deployment repositories, is necessary.
 
+Helm is a package manager for Kubernetes, which simplifies the deployment and management of complex applications on Kubernetes clusters. Helm Charts are packages of pre-configured Kubernetes resources, such as deployments, services, and ingress rules, that can be easily installed on a Kubernetes cluster using Helm. Helm Charts allow developers and DevOps teams to package their applications and infrastructure as a single unit, making it easier to share, deploy, and manage these resources across multiple environments. They provide a simple, repeatable, and automated way to deploy applications and infrastructure on Kubernetes, enabling faster and more reliable software delivery. Helm Charts also come with versioning and rollback features, which allow you to track changes to your application and infrastructure over time and revert to a previous version if needed. This makes it easier to manage and maintain the state of your Kubernetes cluster and ensure that your applications are running smoothly.
+
 ## How to reproduce
 
-Do next step ? XD
+Perform deployment explained below.
 
 ## Demo deployment
 
@@ -257,7 +260,7 @@ Also we enabled `enableRemoteWriteReceiver` to allow sending metrics from OpenTe
 
 To save traces we deploy Grafana Tempo using monolithic mode. OpenTelemetry Collector is High availability (Deamon set), so we don't need microservice mode.
 
-[In config file](./kube_prometheus_stack.yaml) we use remote write to send metrics to prometheus to see ex. error spans in grafana dashboard and navigate to span wht generated this error
+[In config file](./kube_prometheus_stack.yaml) we use remote write to send metrics to Prometheus to see ex. error spans in grafana dashboard and navigate to span which generated it.
 
 ```sh
 helm upgrade \
@@ -313,14 +316,14 @@ singleBinary:
 
 ### OpenTelemetry
 
-Next we should have installed Cert manager, what is OpenTelemetry operator dependency
+Next we should have installed Cert manager, the OpenTelemetry operator dependency
 
 ```sh
 wget https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert-manager.yaml
 kubectl apply -f ./cert-manager.yaml
 ```
 
-Now we add OpenTelemetry Operator initial configuration ??
+Now we add OpenTelemetry Operator initial configuration
 ```sh
 helm upgrade \
     --install opentelemetry-operator \
@@ -329,9 +332,9 @@ helm upgrade \
     --create-namespace
 ```
 
-We are ready do deploy OpenTelemetry Collector. We can achieve this using few different kinds os deployments. To keep short route between pods and OpenTelemety receivers we use `DeamonSet`. So we have one pod with collector on every node and it's carry about process and export telemetry
+We are ready to deploy OpenTelemetry Collector. We can achieve this using few different kinds of deployments. To keep short route between pods and OpenTelemety receivers we use `DeamonSet`. So we have one pod with collector on every node and it's carry about process and export telemetry
 
-To do that we apply [DeamonSet definition](./OpenTelemetryCollector.yaml) shwown below
+To do that we apply [DeamonSet definition](./OpenTelemetryCollector.yaml) shown below
 
 ```yaml
 apiVersion: opentelemetry.io/v1alpha1
@@ -385,7 +388,7 @@ We save traces into Grafana Tempo using otlp protocol, and metric into Prometheu
 
 
 Finally we can use `http://my-collector-collector.observability.svc:4317` endpoint to pass into web app configuration and observe.
-In our case i pass this variable using gitlab ci/cd variable section.
+In our case we pass this variable using gitlab ci/cd variable section.
 For demo purposes, we didn't use [.Net automatic Instrumentation](https://opentelemetry.io/docs/instrumentation/net/automatic/)
 
 
@@ -405,8 +408,7 @@ kind: ConfigMap
 # ....
 ```
 
-Opentracing was used because cluster have installed 1.3.1 version of nginx ingress controller. Starting from 1.4.0 opentelemetry support was added
-
+Opentracing was used because cluster have installed 1.3.1 version of nginx ingress controller. Opentelemetry support was added starting from 1.4.0.
 
 ## Summary
 
