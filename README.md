@@ -238,21 +238,10 @@ prometheus:
     enableRemoteWriteReceiver: true
 
 grafana:
-  ingress:
-    enabled: true
-    # ....
-
-  additionalDataSources:
-  - name: Tempo
-    editable: true
-    type: tempo
-    url: http://tempo.observability.svc:3100
-    # ....
+  enabled: false
 ```
 
 The Prometheus operator leverages the ability to read the cluster's configuration to obtain information about the installed components and gather metrics from them.
-
-Command shown above is modified. This adds ingress definition with ssl certificate make possible to open grafana dashboards
 
 Also we enabled `enableRemoteWriteReceiver` to allow sending metrics from OpenTelemetry exporter to prometheus. It's push based approach.
 
@@ -312,7 +301,38 @@ loki:
 singleBinary:
   replicas: 1
 ```
+### Grafana dashboards
 
+We don't use the deployment of Grafana dashboards in the Prometheus stack because this deployment has fewer configuration options. The deployment of dashboards is done independently.
+
+```sh
+ helm upgrade \
+    --install grafana  \
+    grafana/grafana  \
+    -f ./grafana_dashboards.yaml \
+    --namespace observability \
+    --create-namespace
+```
+
+Used chart values: [`grafana_dashboards.yaml`](./grafana_dashboards.yaml)
+
+The mentioned Helm values include the definition of an ingress along with a certificate and the configuration of data sources that were deployed earlier.
+
+```yaml
+ingress:
+  enabled: true
+  ....
+datasources:
+  datasources.yaml:
+   apiVersion: 1
+   datasources:
+    - name: Prometheus
+      ....
+    - name: Tempo
+      ....
+    - name: Loki
+      ....
+```
 
 ### OpenTelemetry
 
@@ -323,7 +343,7 @@ wget https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert
 kubectl apply -f ./cert-manager.yaml
 ```
 
-Now we add OpenTelemetry Operator initial configuration
+Now we add OpenTelemetry Operator deployment
 ```sh
 helm upgrade \
     --install opentelemetry-operator \
