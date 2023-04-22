@@ -385,6 +385,8 @@ spec:
           insecure: true
       prometheusremotewrite:
         endpoint: http://kube-prometheus-stack-prometheus.observability.svc:9090/api/v1/write
+      loki:
+        endpoint: http://loki.observability:3100/loki/api/v1/push
 
     service:
       pipelines:
@@ -399,7 +401,7 @@ spec:
         logs:
           receivers: [otlp]
           processors: []
-          exporters: [logging]
+          exporters: [loki]
 ```
 
 Also we specify 2 receivers protocols: otlp, jaeger.
