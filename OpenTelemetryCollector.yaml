@@ -1,0 +1,45 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: my-collector
+  namespace: observability
+spec:
+  mode: daemonset
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+      jaeger:
+        protocols:
+          grpc:
+          thrift_compact:
+    processors:
+
+    exporters:
+      logging:
+        loglevel: debug
+      otlp:
+        endpoint: tempo.observability.svc:4317
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: http://kube-prometheus-stack-prometheus.observability.svc:9090/api/v1/write
+      loki:
+        endpoint: http://loki.observability:3100/loki/api/v1/push
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp, jaeger]
+          processors: []
+          exporters: [otlp]
+        metrics:
+          receivers: [otlp]
+          processors: []
+          exporters: [prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          processors: []
+          exporters: [loki]
