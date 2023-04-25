@@ -277,7 +277,7 @@ tempoQuery:
   enabled: false
 ```
 
-### Grafana Tempo 
+### Grafana Loki 
 
 To save logs we deploy Grafana Loki using monolithic mode. Loki deploy also provide Promtail, this is an agent which ships the contents of local logs to a Grafana Loki instance
 
@@ -450,4 +450,4 @@ https://grafana.emotoagh.eu.org/
 - [Prometheus Helm](https://github.com/prometheus-community/helm-charts)
 - [OpenTelemetry Operator](https://github.com/open-telemetry/opentelemetry-helm-charts/tree/main/charts/opentelemetry-operator)
 - [Grafana Tempo](https://github.com/grafana/helm-charts/tree/main/charts/tempo)
-
+- [Grafana Loki](https://github.com/grafana/helm-charts/tree/main/charts/loki-stack)
