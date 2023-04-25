@@ -1,0 +1,112 @@
+# values from: https://github.com/grafana/helm-charts/blob/main/charts/grafana/README.md
+
+grafana.ini:
+  auth.anonymous:
+    enabled: true
+    org_role: Viewer
+
+ingress:
+  enabled: true
+  annotations:
+    #nginx.ingress.kubernetes.io/whitelist-source-range: 10.0.0.0/8
+  hosts: 
+    - grafana.emotoagh.eu.org
+  tls:
+   - secretName: emoto-agh-wildcard-certificate
+     hosts:
+     - grafana.emotoagh.eu.org
+
+datasources:
+  datasources.yaml:
+   apiVersion: 1
+   datasources:
+    - name: Prometheus
+      type: prometheus
+      uid: Prometheus
+      url: http://kube-prometheus-stack-prometheus.observability.svc:9090
+      isDefault: true
+      editable: true
+      jsonData:
+        httpMethod: POST
+        manageAlerts: true
+        prometheusType: Prometheus
+        exemplarTraceIdDestinations:
+          - datasourceUid: Loki
+            name: traceID
+
+    - name: Tempo
+      editable: true
+      uid: Tempo
+      type: tempo
+      url: http://tempo.observability.svc:3100
+      jsonData:
+        httpMethod: GET
+        tracesToLogs:
+          datasourceUid: 'Loki'
+          tags: ['job', 'instance', 'pod', 'namespace']
+          mappedTags: [{ key: 'service.name', value: 'service' }]
+          mapTagNamesEnabled: false
+          spanStartTimeShift: '1h'
+          spanEndTimeShift: '1h'
+          filterByTraceID: false
+          filterBySpanID: false
+        tracesToMetrics:
+          datasourceUid: 'Prometheus'
+          tags: [{ key: 'service.name', value: 'service' }, { key: 'job' }]
+          queries:
+            - name: 'Sample query'
+              query: 'sum(rate(traces_spanmetrics_latency_bucket{$__tags}[5m]))'
+        serviceMap:
+          datasourceUid: 'Prometheus'
+        search:
+          hide: false
+        nodeGraph:
+          enabled: true
+        lokiSearch:
+          datasourceUid: 'Loki'
+      apiVersion: 1
+
+    - name: Loki
+      type: loki
+      uid: Loki
+      url: http://loki.observability:3100
+      basicAuth: true
+      jsonData:
+        maxLines: 1000
+        derivedFields:
+          # Field with external link.
+          - matcherRegex: "traceID=(\\w+)"
+            name: TraceID
+            url: 'http://localhost:16686/trace/$${__value.raw}'
+      secureJsonData:
+        basicAuthPassword: test_password
+
+# https://github.com/dotdc/grafana-dashboards-kubernetes
+
+dashboardProviders:
+  dashboardproviders.yaml:
+   apiVersion: 1
+   providers:
+   - name: 'dotdc'
+     orgId: 1
+     folder: 'Kubernetes'
+     type: file
+     disableDeletion: true
+     editable: true
+     options:
+       path: /var/lib/grafana/dashboards/standard
+
+dashboards:
+  dotdc:
+    k8s-system-api-server:
+      gnetId:	15761
+    k8s-system-coredns:
+      gnetId:	15762
+    k8s-views-global:
+      gnetId:	15757
+    k8s-views-namespaces:
+      gnetId:	15758
+    k8s-views-nodes:
+      gnetId:	15759
+    k8s-views-pods:
+      gnetId:	15760
