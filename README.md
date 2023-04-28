@@ -13,6 +13,7 @@ Authors: Szymon Musiał, Paweł Kruczkiewicz, Marcin Kroczek, Krzysztof Maliszew
 6. [Installation method](#installation-method)
 7. [How to reproduce](#how-to-reproduce)
 8. [Demo deployment](#demo-deployment)
+    - [Results](#results)
 9. [Summary](#summary)
 10. [References](#references)
     - [Helm charts repo](#helm-charts-repo)
@@ -431,6 +432,28 @@ kind: ConfigMap
 ```
 
 Opentracing was used because cluster have installed 1.3.1 version of nginx ingress controller. Opentelemetry support was added starting from 1.4.0.
+
+### Results
+
+Since the environment is set up, we can use [Grafana UI](https://grafana.emotoagh.eu.org/) to monitor all the observability data produced by application.
+
+Thanks to the Grafana Tempo, we can easily filter traces and visualize them in the dasboard.
+![example_trace](./results/example_trace.png)
+Along with the trace, we can visualize communincation between services using node graph.
+![example_node_graph](./results/example_node_graph.png)
+
+Grafana is also a great place to troubleshoot problems in the application.
+Let's generate a bad register request.
+![bad_request_example](./results/bad_request_example.png)
+We can set up tags to filter by specific http status code. Notice that Trace ID of the first found result matches traceId in the response on previous image.
+![filtering_bad_requests](./results/filtering_bad_requests.png)
+![bad_request_trace](./results/bad_request_trace.png)
+If we expand spans of this trace, we get basic data connected with error, such as thrown exception.
+![bad_request_exception_in_trace](./results/bad_request_exception_in_trace.png)
+To get more detailed information, we can view corresponding logs.
+![bad_request_exception_in_logs](./results/bad_request_exception_in_logs.png)
+
+If You would like to explore more examples, they are available [here](./results/).
 
 ## Summary
 
